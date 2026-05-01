@@ -13,6 +13,7 @@ A command-line utility to test AI-Agent by simulating its interaction with human
   - UNSUCCESSFUL: Conversation reaches 10 total messages without resolution
 - **Ollama Integration**: Optional LLM enhancement using `minimax-m2.5:cloud` model
 - **Comprehensive Logging**: All conversations saved to JSON files in `logs/` directory
+- **Automatic Trainer**: Runs simulations and improves agent skills using LLM when unsuccessful
 
 ## Project Structure
 
@@ -22,7 +23,7 @@ talking_heads/
 │   ├── __init__.py
 │   ├── banking_agent_skill.md    # Agent skill documentation
 │   └── banking_agent.py          # Banking agent implementation
-├── human-simulation/
+├── human_simulation/
 │   ├── __init__.py
 │   ├── bill_status_inquiry.md    # Simulation 1: Bill status inquiry
 │   ├── mortgage_rate_inquiry.md  # Simulation 2: Mortgage rate inquiry
@@ -31,9 +32,11 @@ talking_heads/
 │   └── simulation_logic.py       # Human simulation logic
 ├── data/                         # Data directory (for future use)
 ├── logs/                         # Conversation logs
+├── training_logs/                # Training cycle logs
 ├── conversation_manager.py       # Conversation management
 ├── conversation_runner.py        # Conversation runner engine
 ├── ollama_integration.py         # Ollama LLM integration
+├── trainer.py                    # Agent trainer script
 ├── main.py                       # Main CLI entry point
 └── README.md                     # This file
 ```
@@ -221,6 +224,46 @@ Each log file contains:
 2. Update tool detection logic in `process_message()`
 3. Update agent skill documentation in `agent/banking_agent_skill.md`
 
+## Agent Trainer
+
+The system includes an automatic trainer that runs simulations and improves the agent's skills using LLM when conversations are unsuccessful.
+
+### Trainer Features
+- **Automatic Simulation Analysis**: Runs all available simulations and analyzes results
+- **LLM-Based Improvement**: Uses `minimax-m2.5:cloud` model to generate skill improvements
+- **Skill Document Updates**: Automatically updates `agent/banking_agent_skill.md` with improvements
+- **Iterative Training**: Can run multiple training cycles to progressively improve the agent
+- **Comprehensive Logging**: Saves training results to `training_logs/` directory
+
+### Using the Trainer
+
+```bash
+# Run a single training cycle
+python trainer.py
+
+# Run multiple training cycles (iterative improvement)
+python trainer.py --cycles 3
+
+# Run with custom maximum messages
+python trainer.py --max-messages 15
+
+# Use a different Ollama model
+python trainer.py --model llama2
+```
+
+### How the Trainer Works
+1. **Run Simulations**: Executes all human simulation scenarios
+2. **Analyze Results**: Identifies unsuccessful conversations and common issues
+3. **Generate Improvements**: Uses LLM to analyze failures and suggest skill improvements
+4. **Update Agent Skill**: Incorporates improvements into the agent skill document
+5. **Save Results**: Logs training cycle results for future reference
+
+### Training Cycle Output
+- Creates backup of original skill document before updates
+- Saves improvement recommendations as JSON files
+- Generates training summary with success rate improvements
+- Stores all conversation logs for analysis
+
 ## Testing
 
 Run the test suite:
@@ -234,6 +277,9 @@ python -c "from agent.banking_agent import BankingAgentImpl; agent = BankingAgen
 
 # Check Ollama integration
 python -c "from ollama_integration import OllamaClient; client = OllamaClient(); print('Model available:', client.check_model_available())"
+
+# Run trainer to improve agent skills
+python trainer.py --cycles 1
 ```
 
 ## Troubleshooting
