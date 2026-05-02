@@ -264,6 +264,44 @@ python trainer.py --model llama2
 - Generates training summary with success rate improvements
 - Stores all conversation logs for analysis
 
+## Convergent Trainer (Improved Convergence)
+
+For better training convergence, use the `trainer_convergent.py` script which implements:
+
+### Key Improvements for Convergence:
+1. **Direct Code Modification**: Modifies the agent Python code directly instead of just documentation
+2. **Immediate Feedback Loop**: Tests updated agent immediately after each modification
+3. **Targeted Fixes**: Generates specific code changes addressing exact failure points
+4. **Success Rate Tracking**: Monitors improvement across iterations
+5. **Backup/Restore**: Saves best-performing agent versions
+6. **Rule-based Fallback**: Provides alternative fixes when LLM suggestions fail
+
+### Using the Convergent Trainer:
+```bash
+# Run convergent training with default parameters
+python trainer_convergent.py
+
+# Run with custom parameters
+python trainer_convergent.py --iterations 10 --target 0.95 --max-messages 15
+
+# Quick test run
+python trainer_convergent.py --iterations 3 --target 0.8
+```
+
+### How Convergent Training Works:
+1. **Test Current Agent**: Run all simulations to calculate success rate
+2. **Analyze Specific Failures**: Identify exact failure patterns in conversations
+3. **Generate Targeted Fixes**: Use LLM to create specific code changes
+4. **Apply Fixes**: Modify agent code directly
+5. **Test Again**: Verify improvements with immediate testing
+6. **Iterate**: Repeat until target success rate or max iterations
+
+### Convergence Criteria:
+- Target success rate (default: 90%)
+- Maximum iterations (default: 10)
+- Improvement tracking across iterations
+- Automatic restoration of best-performing agent
+
 ## Testing
 
 Run the test suite:

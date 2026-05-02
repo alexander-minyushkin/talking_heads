@@ -1,21 +1,12 @@
 #!/usr/bin/env python3
 """
 Banking Agent implementation with tools for bill status and bank information.
-Now reads agent/banking_agent_skill.md and uses Ollama for answers.
 """
 
 import re
 import random
-import os
 from typing import Dict, List, Optional, Tuple, Any
 from conversation_manager import BankingAgent
-
-# Import OllamaClient from ollama_integration
-try:
-    from ollama_integration import OllamaClient
-except ImportError:
-    # Fallback for backward compatibility
-    OllamaClient = None
 
 
 class BankingAgentImpl(BankingAgent):
@@ -37,60 +28,19 @@ class BankingAgentImpl(BankingAgent):
         r'BILL-\d{6}',        # BILL-123456
         r'\d{10}',            # 1234567890
         r'[A-Z]{3}-\d{5}',    # ABC-12345
-        r'INV\d{8}',          # INV20240001
-        r'BL-\d{4}-\d{4}',   # BL-2024-0001
     ]
     
-    def __init__(self, name: str = "Banking Assistant", use_llm: bool = True):
+    def __init__(self, name: str = "Banking Assistant"):
         """
         Initialize the banking agent.
         
         Args:
             name: Name of the agent
-            use_llm: Whether to use Ollama LLM for answers (default: True)
         """
         super().__init__(name)
         self.bill_database = self._initialize_bill_database()
         self.bank_knowledge_base = self._initialize_knowledge_base()
         
-        # Load the agent skill MD file
-        self.skill_content = self._load_skill_file()
-        
-        # Initialize Ollama client if available and requested
-        self.use_llm = use_llm
-        self.ollama_client = None
-        if use_llm and OllamaClient is not None:
-            try:
-                self.ollama_client = OllamaClient(model="minimax-m2.5:cloud")
-                # Check if model is available
-                if not self.ollama_client.check_model_available():
-                    print(f"Warning: Model minimax-m2.5:cloud not available. Falling back to rule-based responses.")
-                    self.use_llm = False
-            except Exception as e:
-                print(f"Warning: Failed to initialize Ollama client: {e}. Falling back to rule-based responses.")
-                self.use_llm = False
-        
-        # Conversation state tracking
-        self.waiting_for_bill_number = False
-        
-    def _load_skill_file(self) -> str:
-        """
-        Load the banking agent skill MD file.
-        
-        Returns:
-            Content of the skill file as string
-        """
-        skill_file_path = os.path.join(os.path.dirname(__file__), "banking_agent_skill.md")
-        try:
-            with open(skill_file_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        except FileNotFoundError:
-            print(f"Warning: Skill file not found at {skill_file_path}. Using default behavior.")
-            return "# Banking Agent Skill Document\n\nDefault skill content."
-        except Exception as e:
-            print(f"Warning: Failed to load skill file: {e}. Using default behavior.")
-            return "# Banking Agent Skill Document\n\nDefault skill content."
-    
     def _initialize_bill_database(self) -> Dict[str, str]:
         """Initialize a simulated bill database."""
         return {
@@ -171,7 +121,7 @@ class BankingAgentImpl(BankingAgent):
         
         # Check for explicit off-topic indicators
         off_topic_indicators = [
-            'weather', 'forecast', 'rain', 'sunny', 'cloud', 'temperature', 'sports', 'movie', 'music', 'tv', 'entertainment',
+            'weather', 'sports', 'movie', 'music', 'tv', 'entertainment',
             'recipe', 'cooking', 'travel', 'vacation', 'holiday', 'party',
             'medical', 'health', 'doctor', 'hospital', 'medicine',
             'legal', 'lawyer', 'court', 'lawsuit',
@@ -268,54 +218,6 @@ class BankingAgentImpl(BankingAgent):
                 response += f"• {item}\n"
             return response.strip()
     
-    def _generate_llm_response(self, human_message: str, context: str = "") -> str:
-        """
-        Generate a response using Ollama LLM based on the skill definition.
-        
-        Args:
-            human_message: The message from the human
-            context: Additional context for the conversation
-            
-        Returns:
-            LLM-generated response
-        """
-        if not self.use_llm or self.ollama_client is None:
-            return ""
-        
-        # Create a prompt based on the skill definition
-        prompt = f"""You are a banking assistant. Your behavior is defined by this skill document:
-
-{self.skill_content}
-
-Current conversation context: {context}
-
-Human message: "{human_message}"
-
-Based on the skill document above, generate an appropriate response as the banking assistant.
-Your response should be helpful, professional, and focused on banking topics.
-
-Important instructions:
-1. Respond naturally as a banking assistant - do NOT generate XML or tool invocation syntax
-2. If the human is asking about bill status, mention that you can check it or ask for the bill number
-3. If the human is asking for general banking information, provide helpful information
-4. If the human is asking about something not related to banking, respond with "Not my question"
-5. Do NOT include phrases like "I'll use the check_bill_status tool" - just respond naturally
-
-Respond with ONLY the response text, no additional explanations or markdown formatting.
-"""
-        
-        try:
-            response = self.ollama_client.generate(
-                prompt=prompt,
-                system_prompt="You are a helpful banking assistant.",
-                temperature=0.7,
-                max_tokens=500
-            )
-            return response.strip()
-        except Exception as e:
-            print(f"Warning: LLM generation failed: {e}")
-            return ""
-    
     def process_message(self, human_message: str) -> Tuple[str, Optional[str]]:
         """
         Process a human message and generate a response.
@@ -350,32 +252,6 @@ Respond with ONLY the response text, no additional explanations or markdown form
             # Human is asking about bill status but didn't provide bill number
             return "I can check your bill status. Could you please provide the bill number?", None
         
-        # Try to use LLM for response if available
-        if self.use_llm and self.ollama_client is not None:
-            llm_response = self._generate_llm_response(human_message)
-            if llm_response and llm_response.strip():
-                # Check if the LLM response indicates tool usage
-                if "check_bill_status" in llm_response.lower():
-                    # Extract bill number from human message and actually execute the tool
-                    bill_number = self.extract_bill_number(human_message)
-                    if bill_number:
-                        status = self.check_bill_status(bill_number)
-                        if status == "NOT_FOUND":
-                            response = f"I couldn't find bill {bill_number} in our system. Please verify the bill number."
-                        else:
-                            response = f"The bill {bill_number} is currently {status}."
-                        return response, "check_bill_status"
-                    else:
-                        # No bill number found, ask for it
-                        return "I can check your bill status. Could you please provide the bill number?", None
-                elif "provide_bank_information" in llm_response.lower():
-                    # Actually execute the bank information tool
-                    response = self.provide_bank_information(human_message)
-                    return response, "provide_bank_information"
-                else:
-                    return llm_response, None
-        
-        # Fallback to rule-based logic if LLM is not available or didn't produce a response
         # Check for general banking information requests
         banking_query_keywords = ['what', 'how', 'tell me', 'information', 'explain', 'details']
         has_query_keyword = any(keyword in human_message.lower() for keyword in banking_query_keywords)

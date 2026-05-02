@@ -107,7 +107,9 @@ class AgentTrainer:
             "successful_count": 0,
             "unsuccessful_count": 0,
             "errors_count": 0,
+            "all_simulations": [],
             "unsuccessful_simulations": [],
+            "successful_simulations": [],
             "common_issues": [],
             "conversation_patterns": []
         }
@@ -117,22 +119,27 @@ class AgentTrainer:
                 analysis["errors_count"] += 1
                 continue
             
+            # Create simulation info with full conversation
+            sim_info = {
+                "simulation": sim_name,
+                "human_goal": results.get("human_goal", "Unknown"),
+                "outcome": results.get("outcome", "UNKNOWN"),
+                "success_reason": results.get("success_reason", "Unknown"),
+                "total_messages": results.get("total_messages", 0),
+                "max_messages": results.get("max_messages", 10),
+                "tools_used": results.get("tools_used", {}),
+                "full_conversation": self._format_full_conversation(results)
+            }
+            
+            analysis["all_simulations"].append(sim_info)
+            
             outcome = results.get("outcome", "UNKNOWN")
             if outcome == "SUCCESSFUL":
                 analysis["successful_count"] += 1
+                analysis["successful_simulations"].append(sim_info)
             else:
                 analysis["unsuccessful_count"] += 1
-                
-                # Collect details about unsuccessful simulation
-                unsuccessful_info = {
-                    "simulation": sim_name,
-                    "human_goal": results.get("human_goal", "Unknown"),
-                    "success_reason": results.get("success_reason", "Unknown"),
-                    "total_messages": results.get("total_messages", 0),
-                    "max_messages": results.get("max_messages", 10),
-                    "conversation_excerpt": self._extract_conversation_excerpt(results)
-                }
-                analysis["unsuccessful_simulations"].append(unsuccessful_info)
+                analysis["unsuccessful_simulations"].append(sim_info)
         
         # Analyze common issues
         analysis["common_issues"] = self._identify_common_issues(analysis["unsuccessful_simulations"])
@@ -141,20 +148,24 @@ class AgentTrainer:
     
     def _extract_conversation_excerpt(self, results: Dict[str, Any], max_lines: int = 5) -> str:
         """Extract a conversation excerpt for analysis."""
+        return self._format_full_conversation(results)
+    
+    def _format_full_conversation(self, results: Dict[str, Any]) -> str:
+        """Format the full conversation history."""
         history = results.get("conversation_history", [])
         if not history:
             return "No conversation history available."
         
-        excerpt = []
-        for i, msg in enumerate(history[:max_lines]):
+        formatted = []
+        for i, msg in enumerate(history):
             role = msg.get("role", "unknown").upper()
             content = msg.get("content", "")
             tool = msg.get("tool", "")
             
             tool_info = f" [Tool: {tool}]" if tool else ""
-            excerpt.append(f"{role}{tool_info}: {content}")
+            formatted.append(f"{i+1}. {role}{tool_info}: {content}")
         
-        return "\n".join(excerpt)
+        return "\n".join(formatted)
     
     def _identify_common_issues(self, unsuccessful_sims: List[Dict[str, Any]]) -> List[str]:
         """Identify common issues from unsuccessful simulations."""
@@ -162,20 +173,27 @@ class AgentTrainer:
         
         for sim in unsuccessful_sims:
             reason = sim.get("success_reason", "").lower()
-            excerpt = sim.get("conversation_excerpt", "").lower()
+            conversation = sim.get("full_conversation", "").lower()
             
             # Check for specific issues
             if "maximum" in reason and "messages" in reason:
                 issues.append("Conversation exceeded maximum message limit")
             
-            if "bill" in excerpt and "number" in excerpt and "not" in excerpt:
+            if "bill" in conversation and "number" in conversation and ("not" in conversation or "couldn't" in conversation):
                 issues.append("Agent failed to extract or use bill number")
             
-            if "weather" in excerpt and "not my question" not in excerpt:
+            if "weather" in conversation and "not my question" not in conversation:
                 issues.append("Agent failed to detect off-topic weather question")
             
-            if "mortgage" in excerpt and "rate" in excerpt and "information" not in excerpt:
+            if "mortgage" in conversation and "rate" in conversation and "information" not in conversation:
                 issues.append("Agent failed to provide mortgage rate information")
+            
+            # Check for tool usage issues
+            if "tool:" in conversation and "check_bill_status" in conversation and "not found" in conversation:
+                issues.append("Bill status tool returned NOT_FOUND when it should have provided status")
+            
+            if "tool:" in conversation and "provide_bank_information" in conversation and "general information" in conversation:
+                issues.append("Agent provided general information instead of specific answer")
         
         # Deduplicate issues
         return list(set(issues))
@@ -224,7 +242,7 @@ class AgentTrainer:
         except FileNotFoundError:
             current_skill = "Agent skill file not found."
         
-        # Build prompt
+        # Build prompt with ALL simulation results
         prompt = f"""As an expert AI agent trainer, analyze the following simulation results and suggest improvements to the banking agent skill.
 
 CURRENT AGENT SKILL:
@@ -236,32 +254,42 @@ SIMULATION ANALYSIS:
 - Unsuccessful: {analysis['unsuccessful_count']}
 - Errors: {analysis['errors_count']}
 
-UNSUCCESSFUL SIMULATIONS:
+ALL SIMULATION RESULTS:
 """
         
-        for i, sim in enumerate(analysis['unsuccessful_simulations'], 1):
+        # Include all simulations with full conversations
+        for i, sim in enumerate(analysis['all_simulations'], 1):
+            outcome = "✓ SUCCESS" if sim['outcome'] == 'SUCCESSFUL' else "✗ FAILURE"
             prompt += f"""
-{i}. Simulation: {sim['simulation']}
+{i}. {outcome} - {sim['simulation']}
    Goal: {sim['human_goal']}
-   Reason for failure: {sim['success_reason']}
-   Conversation excerpt:
-{sim['conversation_excerpt']}
+   Result: {sim['success_reason']}
+   Messages: {sim['total_messages']}/{sim['max_messages']}
+   Tools used: {', '.join(sim['tools_used'].keys()) if sim['tools_used'] else 'None'}
+   Full Conversation:
+{sim['full_conversation']}
 """
         
         prompt += f"""
-COMMON ISSUES IDENTIFIED:
+COMMON ISSUES IDENTIFIED IN UNSUCCESSFUL SIMULATIONS:
 {chr(10).join(f'- {issue}' for issue in analysis['common_issues'])}
 
-Please provide specific, actionable improvements to the agent skill document. Focus on:
-1. Tool usage improvements (when to use check_bill_status vs provide_bank_information)
-2. Better off-topic detection
-3. Clarification question improvements
-4. Conversation flow enhancements
-5. Any missing banking topics or edge cases
+ANALYSIS REQUEST:
+Please analyze ALL the conversation results above (both successful and unsuccessful) to identify:
+1. What worked well in successful conversations
+2. What went wrong in unsuccessful conversations
+3. Patterns in tool usage and when tools should/shouldn't be used
+4. Off-topic detection effectiveness
+5. Clarification question patterns
+6. Conversation flow issues
+
+Based on this comprehensive analysis, provide specific, actionable improvements to the agent skill document.
 
 Format your response as:
-IMPROVEMENTS SUMMARY: [Brief summary]
-SPECIFIC CHANGES: [List of specific changes to make]
+IMPROVEMENTS SUMMARY: [Brief summary of key findings]
+SUCCESS PATTERNS: [What worked well in successful conversations]
+FAILURE PATTERNS: [Common issues in unsuccessful conversations]
+SPECIFIC CHANGES: [List of specific changes to make to the agent skill]
 UPDATED SKILL SECTIONS: [Provide updated sections if needed]
 """
 
@@ -271,6 +299,8 @@ UPDATED SKILL SECTIONS: [Provide updated sections if needed]
         """Parse LLM response to extract improvements."""
         improvements = {
             "summary": "",
+            "success_patterns": [],
+            "failure_patterns": [],
             "specific_changes": [],
             "updated_sections": {},
             "raw_response": response
@@ -288,14 +318,22 @@ UPDATED SKILL SECTIONS: [Provide updated sections if needed]
             if "improvements summary:" in line_lower:
                 current_section = "summary"
                 improvements["summary"] = line.replace("IMPROVEMENTS SUMMARY:", "").strip()
+            elif "success patterns:" in line_lower:
+                current_section = "success_patterns"
+            elif "failure patterns:" in line_lower:
+                current_section = "failure_patterns"
             elif "specific changes:" in line_lower:
                 current_section = "specific_changes"
             elif "updated skill sections:" in line_lower:
                 current_section = "updated_sections"
-            elif current_section == "specific_changes" and line.strip().startswith("-"):
-                improvements["specific_changes"].append(line.strip()[1:].strip())
             elif current_section == "summary" and improvements["summary"]:
                 improvements["summary"] += " " + line.strip()
+            elif current_section == "success_patterns" and line.strip().startswith("-"):
+                improvements["success_patterns"].append(line.strip()[1:].strip())
+            elif current_section == "failure_patterns" and line.strip().startswith("-"):
+                improvements["failure_patterns"].append(line.strip()[1:].strip())
+            elif current_section == "specific_changes" and line.strip().startswith("-"):
+                improvements["specific_changes"].append(line.strip()[1:].strip())
         
         return improvements
     
@@ -325,14 +363,25 @@ UPDATED SKILL SECTIONS: [Provide updated sections if needed]
 CURRENT SKILL DOCUMENT:
 {current_content}
 
-IMPROVEMENTS TO INCORPORATE:
+ANALYSIS AND IMPROVEMENTS TO INCORPORATE:
 Summary: {improvements.get('summary', 'No summary provided')}
 
-Specific Changes:
+Success Patterns (what worked well):
+{chr(10).join(f'- {pattern}' for pattern in improvements.get('success_patterns', []))}
+
+Failure Patterns (what needs improvement):
+{chr(10).join(f'- {pattern}' for pattern in improvements.get('failure_patterns', []))}
+
+Specific Changes to Make:
 {chr(10).join(f'- {change}' for change in improvements.get('specific_changes', []))}
 
 Please provide the COMPLETE updated skill document with all improvements incorporated.
-Maintain the same markdown format and structure.
+Focus on:
+1. Reinforcing what worked well (success patterns)
+2. Fixing what didn't work (failure patterns)
+3. Implementing the specific changes listed above
+4. Maintaining the same markdown format and structure
+5. Keeping the document practical and actionable for the AI agent
 """
             
             print("   Generating updated skill document...")

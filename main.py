@@ -95,29 +95,27 @@ def run_batch_simulations(args):
 
 def test_agent_directly(args):
     """Test the agent directly with user input."""
-    from agent.banking_agent import BankingAgentImpl
-    from ollama_integration import LLMEnhancedBankingAgent
+    from ollama_integration import LLMEnhancedBankingAgent, LLMUnavailableError
     
     print("\nDirect Agent Testing Mode")
     print("="*60)
     print("Type your messages to the banking agent.")
     print("Type 'quit' or 'exit' to end.")
-    print("Type 'switch' to toggle between rule-based and LLM-enhanced agent.")
+    print("Note: Only LLM-enhanced agent is available (no rule-based fallback).")
     print("-"*60)
     
-    # Initialize agents
-    rule_agent = BankingAgentImpl()
-    llm_agent = LLMEnhancedBankingAgent(use_llm=True)
+    # Initialize agent (LLM only, no fallback)
+    try:
+        llm_agent = LLMEnhancedBankingAgent()
+    except LLMUnavailableError as e:
+        print(f"LLM unavailable: {e}")
+        print("Cannot proceed without LLM. Exiting.")
+        return 1
     
-    current_agent = rule_agent
-    use_llm = False
+    current_agent = llm_agent
+    use_llm = True
     
-    if args.llm:
-        current_agent = llm_agent
-        use_llm = True
-        print("Using LLM-enhanced agent.")
-    else:
-        print("Using rule-based agent.")
+    print("Using LLM-enhanced agent (no rule-based fallback).")
     
     print("-"*60)
     
@@ -130,14 +128,7 @@ def test_agent_directly(args):
                 break
             
             if user_input.lower() == 'switch':
-                if use_llm:
-                    current_agent = rule_agent
-                    use_llm = False
-                    print("Switched to rule-based agent.")
-                else:
-                    current_agent = llm_agent
-                    use_llm = True
-                    print("Switched to LLM-enhanced agent.")
+                print("Rule-based agent is no longer available. Only LLM-enhanced agent is used.")
                 continue
             
             if not user_input:
