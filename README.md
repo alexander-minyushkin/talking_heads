@@ -30,6 +30,7 @@ talking_heads/
 │   ├── off_topic_weather.md      # Simulation 3: Off-topic weather inquiry
 │   ├── account_opening_process.md # Simulation 4: Account opening process
 │   └── simulation_logic.py       # Human simulation logic
+├── convergent_training_logs/     # Convergent training logs and backups
 ├── data/                         # Data directory (for future use)
 ├── logs/                         # Conversation logs
 ├── training_logs/                # Training cycle logs
@@ -37,9 +38,21 @@ talking_heads/
 ├── conversation_runner.py        # Conversation runner engine
 ├── ollama_integration.py         # Ollama LLM integration
 ├── trainer.py                    # Agent trainer script
+├── trainer_convergent.py         # Convergent trainer script
 ├── main.py                       # Main CLI entry point
-└── README.md                     # This file
+├── test_human_simulation_interaction.py  # Interactive test script
+├── HOW_TO_TEST_AGENT.md          # Comprehensive testing guide
+├── USING_TEST_SCRIPT.md          # Test script usage guide
+├── README.md                     # This file
+└── .codeassistantignore          # File ignore patterns
 ```
+
+### Key Files for Testing:
+
+- **`test_human_simulation_interaction.py`** [[test_human_simulation_interaction]] - Interactive script for manual/automatic agent testing
+- **`HOW_TO_TEST_AGENT.md`** [[HOW_TO_TEST_AGENT]] - Comprehensive guide on testing methods
+- **`USING_TEST_SCRIPT.md`** [[USING_TEST_SCRIPT]] - Detailed instructions for using the test script
+- **`main.py`** - Main CLI utility with `--test` flag for direct agent testing
 
 ## Installation
 
@@ -85,25 +98,43 @@ python main.py --test
 
 # Use LLM-enhanced agent
 python main.py --test --llm
+
+# Interactive test script (manual/automatic modes)
+python test_human_simulation_interaction.py
 ```
+
+### Testing Documentation
+
+For detailed testing instructions, see:
+- **[[HOW_TO_TEST_AGENT]]** - Comprehensive testing guide
+- **[[USING_TEST_SCRIPT]]** - Test script usage instructions
 
 ### Simulation Details
 
-1. **Bill Status Inquiry** (`bill_status`)
+1. **Bill Status Inquiry** (`bill_status`) [[bill_status_inquiry]]
    - Human goal: Check status of bill `INV-2024-789`
    - Tests: Agent's ability to ask for bill number and use `check_bill_status` tool
+   - **Key concept**: Human always starts with general bill payment question
 
-2. **Mortgage Rate Inquiry** (`mortgage_rate`)
+1. **Mortgage Rate Inquiry** (`mortgage_rate`) [[mortgage_rate_inquiry]]
    - Human goal: Get information about 30-year fixed mortgage rates
    - Tests: Agent's ability to provide general bank information using `provide_bank_information` tool
+   - **Key concept**: Multi-turn conversation with follow-up questions
 
-3. **Off-topic Weather Inquiry** (`off_topic_weather`)
+1. **Off-topic Weather Inquiry** (`off_topic_weather`) [[off_topic_weather]]
    - Human goal: Get agent to correctly identify off-topic question
    - Tests: Agent's off-topic detection (should respond "Not my question")
+   - **Key concept**: Tests boundary of banking topics
 
-4. **Account Opening Process** (`account_opening`)
+1. **Account Opening Process** (`account_opening`) [[account_opening_process]]
    - Human goal: Learn about opening a savings account
    - Tests: Agent's ability to handle multi-step inquiries and provide detailed information
+   - **Key concept**: Structured conversation with specific information requests
+
+### Testing Documentation Links:
+- **[[HOW_TO_TEST_AGENT]]** - Complete testing methodology guide
+- **[[USING_TEST_SCRIPT]]** - Interactive test script instructions
+- **[[test_human_simulation_interaction]]** - Direct link to test script
 
 ### Advanced Options
 
@@ -302,9 +333,43 @@ python trainer_convergent.py --iterations 3 --target 0.8
 - Improvement tracking across iterations
 - Automatic restoration of best-performing agent
 
-## Testing
+## Testing Documentation
 
-Run the test suite:
+For comprehensive testing instructions, see these guides:
+
+- **[[HOW_TO_TEST_AGENT]]** - Complete guide to testing methods and approaches
+- **[[USING_TEST_SCRIPT]]** - Detailed instructions for using the interactive test script
+
+### Quick Testing Methods:
+
+1. **Interactive Manual Testing** (You as Agent):
+   ```bash
+   python test_human_simulation_interaction.py
+   ```
+   - Choose manual mode to practice being the Agent
+   - Select from all four simulations
+   - Human always starts the conversation first
+
+2. **Direct Agent Testing**:
+   ```bash
+   python main.py --test
+   ```
+   - Simple interactive session
+   - Type messages as the Agent
+   - Type 'quit' or 'exit' to end
+
+3. **Specific Simulation Testing**:
+   ```bash
+   python main.py --simulation bill_status --interactive
+   ```
+
+### Testing Principles:
+
+- **Human always starts first**: The human simulation provides the initial message
+- **Goal-oriented**: Each simulation has specific human goals to achieve
+- **Success conditions**: Conversation ends when human goal achieved or off-topic detected
+
+### Advanced Testing:
 
 ```bash
 # Run all simulations (comprehensive test)
