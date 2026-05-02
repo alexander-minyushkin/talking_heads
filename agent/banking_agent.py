@@ -295,11 +295,7 @@ Based on the skill document above, generate an appropriate response as the banki
 Your response should be helpful, professional, and focused on banking topics.
 
 Important instructions:
-1. Respond naturally as a banking assistant - do NOT generate XML or tool invocation syntax
-2. If the human is asking about bill status, mention that you can check it or ask for the bill number
-3. If the human is asking for general banking information, provide helpful information
-4. If the human is asking about something not related to banking, respond with "Not my question"
-5. Do NOT include phrases like "I'll use the check_bill_status tool" - just respond naturally
+1. Respond naturally as a banking assistant or generate tool invocation syntax
 
 Respond with ONLY the response text, no additional explanations or markdown formatting.
 """
@@ -308,8 +304,8 @@ Respond with ONLY the response text, no additional explanations or markdown form
             response = self.ollama_client.generate(
                 prompt=prompt,
                 system_prompt="You are a helpful banking assistant.",
-                temperature=0.7,
-                max_tokens=500
+                temperature=0.0,
+                max_tokens=1000
             )
             return response.strip()
         except Exception as e:

@@ -12,6 +12,7 @@ from typing import Optional, Dict, Any
 
 from conversation_manager import ConversationManager, ConversationOutcome
 from ollama_integration import LLMEnhancedBankingAgent
+from agent.banking_agent import BankingAgentImpl
 from human_simulation.simulation_logic import SimulationFactory
 
 
@@ -42,7 +43,7 @@ class ConversationRunner:
             True if setup successful, False otherwise
         """
         # Create agent
-        self.agent = LLMEnhancedBankingAgent()
+        self.agent = BankingAgentImpl()
         
         # Create human simulation
         self.human_simulation = SimulationFactory.create_simulation(simulation_name)

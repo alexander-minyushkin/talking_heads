@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional
 
 from conversation_runner import run_simulation, run_all_simulations
-from ollama_integration import OllamaClient, LLMEnhancedBankingAgent
+from ollama_integration import OllamaClient
 from human_simulation.simulation_logic import SimulationFactory
 
 
@@ -95,7 +95,7 @@ def run_batch_simulations(args):
 
 def test_agent_directly(args):
     """Test the agent directly with user input."""
-    from ollama_integration import LLMEnhancedBankingAgent, LLMUnavailableError
+    from agent.banking_agent import BankingAgentImpl
     
     print("\nDirect Agent Testing Mode")
     print("="*60)
@@ -105,12 +105,9 @@ def test_agent_directly(args):
     print("-"*60)
     
     # Initialize agent (LLM only, no fallback)
-    try:
-        llm_agent = LLMEnhancedBankingAgent()
-    except LLMUnavailableError as e:
-        print(f"LLM unavailable: {e}")
-        print("Cannot proceed without LLM. Exiting.")
-        return 1
+
+    llm_agent = BankingAgentImpl()
+
     
     current_agent = llm_agent
     use_llm = True
